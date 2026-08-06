@@ -1,7 +1,15 @@
-FROM python:3.9-slim-buster
+FROM python:3.11-slim
+
 WORKDIR /app
+
+# Install deps first (layer cache)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source
 COPY . .
+
 EXPOSE 8001
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+
+# Run with 2 workers; override via CMD in compose for dev
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]

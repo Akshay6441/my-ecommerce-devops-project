@@ -1,41 +1,54 @@
-# compose.yaml
-version: '3.8'
 services:
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Frontend connects to Nginx on port 80, which proxies /api to backend:8001
         REACT_APP_BACKEND_URL_ARG: http://localhost:80
     ports:
-      - "80:80"   # Map host port 80 to container port 80 (Nginx default)
+      - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8001:8001"   # Map host port 8001 to container port 8001 (FastAPI default)
+      - "8001:8001"
     depends_on:
-      - db
-    environment:
-      # These will be replaced by K8s Secrets later
-      DATABASE_URL: postgresql://user:password@db:5432/mydatabase
+      db:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env        # All secrets live here — not hardcoded
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8001/api/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   db:
-    image: postgres:13   # Use a specific version for stability
-    restart: always
+    image: postgres:15-alpine
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: mydatabase
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ${POSTGRES_DB:-mydatabase}
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
     ports:
-      - "5432:5432"   # Optional: access DB from host
+      - "5432:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data   # Persist database data
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-mydatabase}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
-  db_data:   # Define the named volume
+  db_data:

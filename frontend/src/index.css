@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design System CSS Custom Properties ─────────────────────────────────────
+   Single source of truth for brand colors.
+   Use these vars in any inline style or non-Tailwind context.          */
+:root {
+  --brand-primary:    #E91E8C;
+  --brand-secondary:  #FF7A1A;
+  --brand-gradient:   linear-gradient(135deg, #E91E8C, #FF7A1A);
+  --accent-purple:    #9B4FE0;
+
+  /* Status — ONLY for functional meaning, never decorative */
+  --status-success:   #16A34A;
+  --status-warning:   #F59E0B;
+  --status-danger:    #DC2626;
+
+  --neutral-text:     #1A1A1A;
+  --neutral-muted:    #6B7280;
+  --neutral-bg:       #F9FAFB;
+
+  /* Icon chip backgrounds at 10% opacity */
+  --chip-brand-bg:    rgba(233, 30, 140, 0.10);
+  --chip-purple-bg:   rgba(155, 79, 224, 0.10);
+  --chip-success-bg:  rgba(22, 163, 74, 0.10);
+  --chip-danger-bg:   rgba(220, 38, 38, 0.10);
+}
+
+@layer base {
+  body {
+    @apply font-sans bg-gray-50;
+    color: var(--neutral-text);
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-bold;
+  }
+}
+
+@layer components {
+  /* ── Card ─────────────────────────────────────────────────── */
+  .card {
+    @apply bg-white rounded-2xl shadow-card transition-shadow duration-300 hover:shadow-card-hover;
+  }
+
+  /* ── Input ────────────────────────────────────────────────── */
+  .input {
+    @apply w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-800
+           placeholder-gray-400 text-sm
+           focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent
+           transition-all duration-200;
+  }
+
+  /* ── Buttons ──────────────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-primary-500 hover:bg-primary-600 active:bg-primary-700
+           text-white font-semibold text-sm rounded-xl px-5 py-2.5
+           transition-all duration-200 shadow-sm hover:shadow-md
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           border border-gray-200 hover:border-primary-400
+           text-gray-700 hover:text-primary-600 font-semibold text-sm rounded-xl px-5 py-2.5
+           transition-all duration-200 bg-white hover:bg-primary-50
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2
+           bg-accent-500 hover:bg-accent-600 active:bg-accent-600
+           text-white font-semibold text-sm rounded-xl px-5 py-2.5
+           transition-all duration-200 shadow-sm hover:shadow-md
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* ── Badge ────────────────────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+
+  /* ── Icon chip — brand-tinted rounded square ───────────────
+     Rule: all utility nav icons use this.
+     Background is brand-primary at 10% opacity.              */
+  .icon-chip {
+    @apply w-8 h-8 rounded-lg flex items-center justify-center shrink-0;
+    background: var(--chip-brand-bg);
+    color: var(--brand-primary);
+  }
+  .icon-chip-purple {
+    @apply w-8 h-8 rounded-lg flex items-center justify-center shrink-0;
+    background: var(--chip-purple-bg);
+    color: var(--accent-purple);
+  }
+  /* Security / trust icons only → success green */
+  .icon-chip-success {
+    @apply w-8 h-8 rounded-lg flex items-center justify-center shrink-0;
+    background: var(--chip-success-bg);
+    color: var(--status-success);
+  }
+  /* Destructive actions only → danger red */
+  .icon-chip-danger {
+    @apply w-8 h-8 rounded-lg flex items-center justify-center shrink-0;
+    background: var(--chip-danger-bg);
+    color: var(--status-danger);
+  }
+
+  /* ── Category icon chip — larger, for category grid ────────── */
+  .cat-icon-chip {
+    @apply w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shrink-0
+           transition-transform duration-200 group-hover:scale-110;
+    background: var(--chip-brand-bg);
+    color: var(--brand-primary);
+  }
+  .cat-icon-chip-purple {
+    @apply w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shrink-0
+           transition-transform duration-200 group-hover:scale-110;
+    background: var(--chip-purple-bg);
+    color: var(--accent-purple);
+  }
+
+  /* ── Section headings ─────────────────────────────────────── */
+  .section-title    { @apply text-3xl font-display font-bold text-gray-900; }
+  .section-subtitle { @apply text-base text-gray-500 mt-2; }
+
+  /* ── Layout ───────────────────────────────────────────────── */
+  .container-page { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8; }
+
+  /* ── Gradient text (logo / headings) ─────────────────────── */
+  .gradient-text {
+    background: var(--brand-gradient);
+    @apply bg-clip-text text-transparent;
+  }
+
+  /* ── Product card image wrapper ───────────────────────────── */
+  .product-img-wrap {
+    @apply relative overflow-hidden rounded-t-2xl bg-gray-50 aspect-square;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in  { animation: fadeIn  0.40s ease-out; }
+  .animate-slide-up { animation: slideUp 0.45s ease-out; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}

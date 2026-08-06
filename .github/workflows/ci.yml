@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Backend: lint + test ─────────────────────────────────────────────────────
+  backend:
+    name: Backend (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint with ruff
+        run: |
+          pip install ruff==0.5.0
+          ruff check . --select E,F,W --ignore E501
+
+      - name: Run tests
+        env:
+          DATABASE_URL: sqlite:///./test.db
+          SECRET_KEY: test-secret-key-32chars-for-tests!
+          STRIPE_SECRET_KEY: sk_test_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_placeholder
+          APP_ENV: test
+        run: pytest tests/ -v --tb=short --no-header
+
+  # ── Frontend: build ──────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend (React)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package.json
+
+      - name: Install dependencies
+        run: npm install --silent
+
+      - name: Build production bundle
+        env:
+          REACT_APP_BACKEND_URL: http://localhost
+          CI: false
+        run: npm run build
+
+  # ── Docker: build both images ─────────────────────────────────────────────────
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false
+          tags: shopvibe-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: false
+          tags: shopvibe-frontend:${{ github.sha }}
+          build-args: REACT_APP_BACKEND_URL_ARG=http://localhost
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

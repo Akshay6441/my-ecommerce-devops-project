@@ -1,55 +1,86 @@
-import React, { useState, useEffect } from 'react';
-import './App.css';
-function App() {
-const [products, setProducts] = useState([]);
-const [loading, setLoading] = useState(true);
-const [error, setError] = useState(null);
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL ||
-'http://localhost:8001';
-useEffect(() => {
-const fetchProducts = async () => {
-try {
-const response = await fetch(`${BACKEND_URL}/api/products`);
-if (!response.ok) {
-throw new Error(`HTTP error! status: ${response.status}`);
+import React from 'react';
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import Layout from './components/layout/Layout';
+import { ProtectedRoute, AdminRoute } from './components/common/ProtectedRoute';
+
+// Pages
+import HomePage          from './pages/HomePage';
+import ShopPage          from './pages/ShopPage';
+import ProductDetailPage from './pages/ProductDetailPage';
+import CartPage          from './pages/CartPage';
+import CheckoutPage      from './pages/CheckoutPage';
+import LoginPage         from './pages/LoginPage';
+import RegisterPage      from './pages/RegisterPage';
+import OrdersPage        from './pages/OrdersPage';
+import ProfilePage       from './pages/ProfilePage';
+import AdminPage         from './pages/AdminPage';
+import WishlistPage      from './pages/WishlistPage';
+
+// ── Layout wrapper that renders <Outlet> inside ───────────────────────────────
+function LayoutWrapper() {
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
+  );
 }
-const data = await response.json();setProducts(data);
-} catch (error) {
-setError(error);
-console.error("Failed to fetch products:", error);
-} finally {
-setLoading(false);
+
+// ── 404 ───────────────────────────────────────────────────────────────────────
+function NotFoundPage() {
+  return (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4 animate-fade-in">
+      <p className="text-9xl font-display font-extrabold gradient-text mb-4">404</p>
+      <h1 className="text-2xl font-bold text-gray-800 mb-2">Page Not Found</h1>
+      <p className="text-gray-500 mb-8 max-w-sm">
+        The page you're looking for doesn't exist or has been moved.
+      </p>
+      <a href="/" className="btn-primary px-8 py-3">← Back to Home</a>
+    </div>
+  );
 }
-};
-fetchProducts();
-}, [BACKEND_URL]);
-if (loading) {
-return <div className="App">Loading products...</div>;
+
+// ── App ───────────────────────────────────────────────────────────────────────
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {/* Auth pages — standalone (no Navbar/Footer) */}
+          <Route path="/login"    element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+
+          {/* All other pages — wrapped in Layout */}
+          <Route element={<LayoutWrapper />}>
+            <Route path="/"              element={<HomePage />} />
+            <Route path="/shop"          element={<ShopPage />} />
+            <Route path="/product/:slug" element={<ProductDetailPage />} />
+            <Route path="/cart"          element={<CartPage />} />
+
+            {/* Protected: must be logged in */}
+            <Route path="/checkout" element={
+              <ProtectedRoute><CheckoutPage /></ProtectedRoute>
+            } />
+            <Route path="/orders" element={
+              <ProtectedRoute><OrdersPage /></ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute><ProfilePage /></ProtectedRoute>
+            } />
+            <Route path="/wishlist" element={
+              <ProtectedRoute><WishlistPage /></ProtectedRoute>
+            } />
+
+            {/* Admin only */}
+            <Route path="/admin" element={
+              <AdminRoute><AdminPage /></AdminRoute>
+            } />
+
+            {/* Catch-all 404 */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
 }
-if (error) {
-return <div className="App">Error: {error.message}</div>;
-}
-return (
-<div className="App">
-<header className="App-header">
-<h1>My Awesome Shop - Product Catalog</h1>
-</header>
-<main>
-<div className="product-list">
-{products.map(product => (
-<div key={product.id} className="product-card">
-<img src={product.image_url ||
-'https://via.placeholder.com/150'} alt={product.name} />
-<h2>{product.name}</h2>
-<p>{product.description}</p>
-<p><strong>${product.price.toFixed(2)}</strong></p>
-<p>Category: {product.category}</p>
-<p>In Stock: {product.stock_quantity}</p>
-</div>
-))}
-</div>
-</main>
-</div>
-);
-}
-export default App;
