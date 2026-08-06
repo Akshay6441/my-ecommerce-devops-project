@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
 import enum
+import os
 
 
 class UserRole(str, enum.Enum):
@@ -18,10 +19,10 @@ class OrderStatus(str, enum.Enum):
     cancelled = "cancelled"
 
 
-# create_type=False — SQLAlchemy will NOT try to CREATE TYPE on every startup.
-# The type is created once by the first create_all; subsequent runs skip it.
-_userrole_col   = lambda **kw: Enum(UserRole,   create_type=False, **kw)
-_orderstatus_col = lambda **kw: Enum(OrderStatus, create_type=False, **kw)
+# Use native_enum=False for SQLite (tests); native enums for Postgres (production)
+_is_sqlite = "sqlite" in os.getenv("DATABASE_URL", "postgresql")
+_UserRoleEnum = Enum(UserRole, native_enum=not _is_sqlite, create_type=not _is_sqlite)
+_OrderStatusEnum = Enum(OrderStatus, native_enum=not _is_sqlite, create_type=not _is_sqlite)
 
 class User(Base):
     __tablename__ = "users"
@@ -29,7 +30,7 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole, create_type=False), default=UserRole.customer)
+    role = Column(_UserRoleEnum, default=UserRole.customer)
     is_active = Column(Boolean, default=True)
     avatar_url = Column(String(500), nullable=True)
     phone = Column(String(30), nullable=True)
@@ -97,7 +98,7 @@ class Order(Base):
     __tablename__ = "orders"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    status = Column(Enum(OrderStatus, create_type=False), default=OrderStatus.pending)
+    status = Column(_OrderStatusEnum, default=OrderStatus.pending)
     total_amount = Column(Float, nullable=False)
     shipping_address = Column(Text, nullable=False)
     payment_method = Column(String(50), default="card")

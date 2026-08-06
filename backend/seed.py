@@ -1,10 +1,7 @@
 """Seed the database with categories, products and an admin user."""
-from database import SessionLocal, engine, Base
+from database import SessionLocal, Base
 import models
 from auth import hash_password
-from sqlalchemy import text
-
-Base.metadata.create_all(bind=engine)
 
 def seed():
     db = SessionLocal()
