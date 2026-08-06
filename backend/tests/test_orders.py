@@ -1,7 +1,7 @@
 """Tests for /api/orders endpoints."""
+from tests.conftest import auth_headers
 import models
 from auth import hash_password
-from tests.conftest import auth_headers
 
 
 def _add_product_to_cart(client, product, headers):
@@ -73,8 +73,6 @@ def test_get_order_by_id(client, regular_user, product):
 
 
 def test_cannot_see_other_user_order(client, regular_user, admin_user, product, db):
-    import models
-    from auth import hash_password
     # Create order as alice
     alice_headers = auth_headers(client, "alice@test.com", "alicepass")
     client.post("/api/cart", json={"product_id": product.id, "quantity": 1}, headers=alice_headers)

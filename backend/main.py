@@ -132,7 +132,7 @@ def list_products(
     sort: Optional[str] = Query("newest", pattern=r"^(newest|price_asc|price_desc|rating|name)$"),
     featured: Optional[bool] = None, db: Session = Depends(get_db),
 ):
-    qry = db.query(models.Product).filter(models.Product.is_active is True)
+    qry = db.query(models.Product).filter(models.Product.is_active == True)  # noqa: E712
     if q:
         qry = qry.filter(or_(models.Product.name.ilike(f"%{q}%"),
                               models.Product.description.ilike(f"%{q}%"),
@@ -152,7 +152,7 @@ def list_products(
 
 @app.get("/api/products/{slug}", response_model=schemas.ProductOut, tags=["Products"])
 def get_product(slug: str, db: Session = Depends(get_db)):
-    p = db.query(models.Product).filter(models.Product.slug == slug, models.Product.is_active is True).first()
+    p = db.query(models.Product).filter(models.Product.slug == slug, models.Product.is_active == True).first()  # noqa: E712
     if not p: raise HTTPException(404, "Product not found")
     return p
 
@@ -209,7 +209,7 @@ def get_cart(db: Session = Depends(get_db), current_user: models.User = Depends(
 def add_to_cart(payload: schemas.CartItemCreate, db: Session = Depends(get_db),
                 current_user: models.User = Depends(get_current_user)):
     product = db.query(models.Product).filter(models.Product.id == payload.product_id,
-                                               models.Product.is_active is True).first()
+                                               models.Product.is_active == True).first()  # noqa: E712
     if not product: raise HTTPException(404, "Product not found")
     if product.stock_quantity < payload.quantity:
         raise HTTPException(400, f"Only {product.stock_quantity} units in stock")
@@ -359,7 +359,7 @@ def check_wishlist(product_id: int, db: Session = Depends(get_db),
 @app.get("/api/search/suggestions", response_model=List[schemas.SearchSuggestion], tags=["Search"])
 def search_suggestions(q: str = Query(..., min_length=1), db: Session = Depends(get_db)):
     results = db.query(models.Product).filter(
-        models.Product.is_active is True,
+        models.Product.is_active == True,  # noqa: E712
         or_(models.Product.name.ilike(f"%{q}%"), models.Product.brand.ilike(f"%{q}%"),
             models.Product.tags.ilike(f"%{q}%"))).limit(8).all()
     return [{"id": p.id, "name": p.name, "slug": p.slug, "price": p.price,
@@ -373,7 +373,7 @@ def get_related(product_id: int, limit: int = Query(4, ge=1, le=12), db: Session
     tag_list = [t.strip() for t in (product.tags or "").split(",") if t.strip()]
     scored = [(len(set(tag_list) & set([t.strip() for t in (p.tags or "").split(",") if t.strip()])), p)
               for p in db.query(models.Product).filter(models.Product.id != product_id,
-                                                        models.Product.is_active is True).all()
+                                                        models.Product.is_active == True).all()  # noqa: E712
               if set(tag_list) & set([t.strip() for t in (p.tags or "").split(",") if t.strip()])]
     scored.sort(key=lambda x: x[0], reverse=True)
     top = [p for _, p in scored[:limit]]
@@ -381,7 +381,7 @@ def get_related(product_id: int, limit: int = Query(4, ge=1, le=12), db: Session
         eids = {p.id for p in top} | {product_id}
         top.extend(db.query(models.Product).filter(models.Product.category_id == product.category_id,
                                                     models.Product.id.notin_(eids),
-                                                    models.Product.is_active is True
+                                                    models.Product.is_active == True  # noqa: E712
                                                     ).limit(limit - len(top)).all())
     return top[:limit]
 
