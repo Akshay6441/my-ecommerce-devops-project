@@ -1,5 +1,4 @@
 """Tests for /api/auth/* endpoints."""
-import pytest
 from tests.conftest import auth_headers
 
 

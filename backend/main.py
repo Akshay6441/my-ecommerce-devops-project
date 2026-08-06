@@ -1,8 +1,9 @@
 import stripe
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import or_, func, text as _sql
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
 from typing import List, Optional
 from database import engine, get_db, Base
 import models
@@ -12,13 +13,10 @@ from config import settings
 from logger import setup_logging, RequestLoggingMiddleware, logger
 from seed import seed as run_seed
 
-# ── Startup ───────────────────────────────────────────────────────────────────
-from contextlib import asynccontextmanager
-
 setup_logging("INFO" if settings.app_env == "production" else "DEBUG")
 stripe.api_key = settings.stripe_secret_key
 
-from sqlalchemy import text as _sql
+# ── Startup ───────────────────────────────────────────────────────────────────
 
 
 def _init_db() -> None:

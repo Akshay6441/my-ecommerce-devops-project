@@ -34,7 +34,7 @@ def test_list_products_pagination(client, db, category):
 
 
 def test_list_products_filter_category(client, product, category):
-    resp = client.get(f"/api/products?category=electronics")
+    resp = client.get("/api/products?category=electronics")
     assert resp.status_code == 200
     assert resp.json()["total"] == 1
 

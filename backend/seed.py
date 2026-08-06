@@ -1,5 +1,5 @@
 """Seed the database with categories, products and an admin user."""
-from database import SessionLocal, Base
+from database import SessionLocal
 import models
 from auth import hash_password
 

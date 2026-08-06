@@ -2,7 +2,6 @@
 import os
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 # Set env vars FIRST — before any app module is imported
