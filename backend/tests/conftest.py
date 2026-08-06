@@ -1,42 +1,34 @@
-"""Shared pytest fixtures — in-memory SQLite DB, test client, seeded data."""
+"""Shared pytest fixtures — SQLite DB, no Postgres needed."""
+import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Use SQLite in-memory so tests need no Postgres running
-TEST_DATABASE_URL = "sqlite:///./test.db"
-
-# Patch settings BEFORE importing app modules
-import os
-os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+# Set env vars FIRST — before any app module is imported
+# database.py reads DATABASE_URL from os.environ directly
+os.environ["DATABASE_URL"] = "sqlite:///./test.db"
 os.environ["SECRET_KEY"] = "test-secret-key-32chars-for-tests!"
 os.environ["STRIPE_SECRET_KEY"] = "sk_test_placeholder"
 os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_placeholder"
 os.environ["APP_ENV"] = "test"
 
-from database import Base, get_db          # noqa: E402
-from main import app                        # noqa: E402
-import models                               # noqa: E402
-from auth import hash_password              # noqa: E402
+# Now safe to import app modules
+from database import Base, get_db, engine as test_engine  # noqa: E402
+from main import app                                         # noqa: E402
+import models                                               # noqa: E402
+from auth import hash_password                              # noqa: E402
 
-engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Override the app's engine to use SQLite for tests
-import database as _db_module              # noqa: E402
-_db_module.engine = engine
-_db_module.SessionLocal = TestingSessionLocal
+TestingSessionLocal = sessionmaker(
+    autocommit=False, autoflush=False, bind=test_engine
+)
 
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_db():
-    """Create all tables before each test, drop after."""
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=test_engine)
     yield
-    Base.metadata.drop_all(bind=engine)
-    # Remove test.db file if it exists
-    import os
+    Base.metadata.drop_all(bind=test_engine)
     if os.path.exists("test.db"):
         try:
             os.remove("test.db")
@@ -55,7 +47,6 @@ def db():
 
 @pytest.fixture(scope="function")
 def client(db):
-    """TestClient wired to in-memory DB."""
     def override_get_db():
         try:
             yield db
@@ -91,8 +82,9 @@ def regular_user(db):
 
 @pytest.fixture
 def category(db):
-    cat = models.Category(name="Electronics", slug="electronics",
-                          description="Gadgets")
+    cat = models.Category(
+        name="Electronics", slug="electronics", description="Gadgets"
+    )
     db.add(cat); db.commit(); db.refresh(cat)
     return cat
 
@@ -110,8 +102,6 @@ def product(db, category):
 
 
 def auth_headers(client, email, password):
-    """Helper: login and return Authorization header dict."""
     resp = client.post("/api/auth/login", json={"email": email, "password": password})
     assert resp.status_code == 200, resp.text
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    return {"Authorization": f"Bearer {resp.json()['access_token']}"}
