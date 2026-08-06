@@ -23,6 +23,11 @@ from auth import hash_password              # noqa: E402
 engine = create_engine(TEST_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Override the app's engine to use SQLite for tests
+import database as _db_module              # noqa: E402
+_db_module.engine = engine
+_db_module.SessionLocal = TestingSessionLocal
+
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_db():
@@ -30,6 +35,13 @@ def setup_db():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    # Remove test.db file if it exists
+    import os
+    if os.path.exists("test.db"):
+        try:
+            os.remove("test.db")
+        except OSError:
+            pass
 
 
 @pytest.fixture(scope="function")

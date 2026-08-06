@@ -5,21 +5,27 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import List, Optional
 from database import engine, get_db, Base
-import models, schemas
+import models
+import schemas
 from auth import hash_password, verify_password, create_access_token, get_current_user, get_current_admin
 from config import settings
 from logger import setup_logging, RequestLoggingMiddleware, logger
 from seed import seed as run_seed
 
 # ── Startup ───────────────────────────────────────────────────────────────────
+from contextlib import asynccontextmanager
+
 setup_logging("INFO" if settings.app_env == "production" else "DEBUG")
 stripe.api_key = settings.stripe_secret_key
 
 from sqlalchemy import text as _sql
 
-# Create enum types idempotently — PostgreSQL has no "CREATE TYPE IF NOT EXISTS"
-# so we use a DO block to check pg_type first.
-_CREATE_ENUMS = """
+
+def _init_db() -> None:
+    """Create tables + enum types. Skips Postgres-specific DDL when using SQLite (tests)."""
+    is_postgres = "postgresql" in settings.database_url or "postgres" in settings.database_url
+    if is_postgres:
+        _CREATE_ENUMS = """
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userrole') THEN
         CREATE TYPE userrole AS ENUM ('customer', 'admin');
@@ -29,21 +35,26 @@ DO $$ BEGIN
     END IF;
 END $$;
 """
-with engine.connect() as _conn:
-    _conn.execute(_sql(_CREATE_ENUMS))
-    _conn.commit()
+        with engine.connect() as _conn:
+            _conn.execute(_sql(_CREATE_ENUMS))
+            _conn.commit()
+    Base.metadata.create_all(bind=engine)
+    try:
+        run_seed()
+    except Exception as exc:
+        logger.info("Seed skipped: %s", exc)
 
-Base.metadata.create_all(bind=engine)
 
-try:
-    run_seed()
-except Exception as exc:
-    logger.info("Seed skipped: %s", exc)
+@asynccontextmanager
+async def lifespan(app_instance):  # noqa: F841
+    _init_db()
+    yield
 
 app = FastAPI(
     title="ShopVibe API", version="2.0.0",
     description="Full-stack e-commerce REST API — FastAPI + PostgreSQL",
     docs_url="/api/docs", redoc_url="/api/redoc", openapi_url="/api/openapi.json",
+    lifespan=lifespan,
 )
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
