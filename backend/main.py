@@ -45,7 +45,9 @@ END $$;
 
 @asynccontextmanager
 async def lifespan(app_instance):  # noqa: F841
-    _init_db()
+    # DB init only runs in production (not when DATABASE_URL is sqlite)
+    if "postgresql" in settings.database_url or "postgres" in settings.database_url:
+        _init_db()
     yield
 
 app = FastAPI(
@@ -108,7 +110,7 @@ def change_password(payload: schemas.PasswordChange, db: Session = Depends(get_d
     db.commit()
     return {"message": "Password changed successfully"}
 
-# ── Categories ────────────────────────────────────────────────────────────────
+# ── Categories ──────────────────────────────────────────────────────────────────
 @app.get("/api/categories", response_model=List[schemas.CategoryOut], tags=["Categories"])
 def list_categories(db: Session = Depends(get_db)):
     return db.query(models.Category).all()
@@ -122,7 +124,7 @@ def create_category(payload: schemas.CategoryCreate, db: Session = Depends(get_d
     db.add(cat); db.commit(); db.refresh(cat)
     return cat
 
-# ── Products ──────────────────────────────────────────────────────────────────
+# ── Products ────────────────────────────────────────────────────────────────────
 @app.get("/api/products", response_model=schemas.ProductsResponse, tags=["Products"])
 def list_products(
     page: int = Query(1, ge=1), per_page: int = Query(12, ge=1, le=100),
@@ -182,7 +184,7 @@ def delete_product(product_id: int, db: Session = Depends(get_db),
     if not p: raise HTTPException(404, "Product not found")
     db.delete(p); db.commit()
 
-# ── Reviews ───────────────────────────────────────────────────────────────────
+# ── Reviews ──────────────────────────────────────────────────────────────────────
 @app.get("/api/products/{product_id}/reviews", response_model=List[schemas.ReviewOut], tags=["Reviews"])
 def list_reviews(product_id: int, db: Session = Depends(get_db)):
     return db.query(models.Review).filter(models.Review.product_id == product_id).all()
@@ -200,7 +202,7 @@ def create_review(product_id: int, payload: schemas.ReviewCreate, db: Session = 
     db.commit(); db.refresh(r)
     return r
 
-# ── Cart ──────────────────────────────────────────────────────────────────────
+# ── Cart ─────────────────────────────────────────────────────────────────────────
 @app.get("/api/cart", response_model=List[schemas.CartItemOut], tags=["Cart"])
 def get_cart(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return db.query(models.CartItem).filter(models.CartItem.user_id == current_user.id).all()
@@ -243,7 +245,7 @@ def clear_cart(db: Session = Depends(get_db), current_user: models.User = Depend
     db.query(models.CartItem).filter(models.CartItem.user_id == current_user.id).delete()
     db.commit()
 
-# ── Orders ────────────────────────────────────────────────────────────────────
+# ── Orders ───────────────────────────────────────────────────────────────────────
 @app.post("/api/orders", response_model=schemas.OrderOut, status_code=201, tags=["Orders"])
 def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db),
                  current_user: models.User = Depends(get_current_user)):
@@ -274,7 +276,7 @@ def get_order(order_id: int, db: Session = Depends(get_db),
         raise HTTPException(404, "Order not found")
     return order
 
-# ── Stripe ────────────────────────────────────────────────────────────────────
+# ── Stripe ───────────────────────────────────────────────────────────────────────
 @app.post("/api/payments/create-session", response_model=schemas.StripeSessionOut, tags=["Payments"])
 def create_stripe_session(order_id: int, db: Session = Depends(get_db),
                           current_user: models.User = Depends(get_current_user)):
@@ -322,7 +324,7 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
             logger.info("Payment confirmed for order #%d", order.id)
     return {"received": True}
 
-# ── Wishlist ──────────────────────────────────────────────────────────────────
+# ── Wishlist ────────────────────────────────────────────────────────────────────
 @app.get("/api/wishlist", response_model=List[schemas.WishlistItemOut], tags=["Wishlist"])
 def get_wishlist(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return db.query(models.WishlistItem).filter(models.WishlistItem.user_id == current_user.id)\
@@ -355,7 +357,7 @@ def check_wishlist(product_id: int, db: Session = Depends(get_db),
                                                    models.WishlistItem.product_id == product_id).first()
     return {"wishlisted": exists is not None}
 
-# ── Search & Related ──────────────────────────────────────────────────────────
+# ── Search & Related ────────────────────────────────────────────────────────────
 @app.get("/api/search/suggestions", response_model=List[schemas.SearchSuggestion], tags=["Search"])
 def search_suggestions(q: str = Query(..., min_length=1), db: Session = Depends(get_db)):
     results = db.query(models.Product).filter(
@@ -385,7 +387,7 @@ def get_related(product_id: int, limit: int = Query(4, ge=1, le=12), db: Session
                                                     ).limit(limit - len(top)).all())
     return top[:limit]
 
-# ── Admin ─────────────────────────────────────────────────────────────────────
+# ── Admin ───────────────────────────────────────────────────────────────────────
 @app.get("/api/admin/orders", response_model=List[schemas.OrderOut], tags=["Admin"])
 def admin_list_orders(db: Session = Depends(get_db), _: models.User = Depends(get_current_admin)):
     return db.query(models.Order).order_by(models.Order.created_at.desc()).all()
