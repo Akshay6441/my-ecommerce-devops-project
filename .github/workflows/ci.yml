@@ -7,13 +7,28 @@ on:
     branches: [main]
 
 jobs:
-  # ── Backend: lint + test ─────────────────────────────────────────────────────
+  # ── Backend: lint + test against real Postgres ───────────────────────────────
   backend:
     name: Backend (Python)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +50,7 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: "sqlite://"
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
           SECRET_KEY: test-secret-key-32chars-for-tests!
           STRIPE_SECRET_KEY: sk_test_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_placeholder

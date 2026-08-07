@@ -1,32 +1,33 @@
-"""Shared pytest fixtures — in-memory SQLite via StaticPool, no Postgres needed."""
+"""Shared pytest fixtures — runs against real PostgreSQL (CI service container)."""
 import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
 
-# ── Set env vars BEFORE any app import ───────────────────────────────────────
-os.environ["DATABASE_URL"] = "sqlite://"          # pure in-memory
-os.environ["SECRET_KEY"]   = "test-secret-key-32chars-for-tests!"
-os.environ["STRIPE_SECRET_KEY"]    = "sk_test_placeholder"
-os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_placeholder"
-os.environ["APP_ENV"] = "test"
+# DATABASE_URL is injected by CI (postgresql://testuser:testpass@localhost:5432/testdb)
+# Falls back to a local Postgres for local dev runs
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://user:password@localhost:5432/mydatabase"
+)
 
-# ── Import app modules AFTER env is set ──────────────────────────────────────
-# database.py reads DATABASE_URL from os.environ at import time,
-# so it creates a StaticPool in-memory engine automatically.
-from database import Base, get_db, engine   # noqa: E402  ← THE single engine
+os.environ["DATABASE_URL"] = DATABASE_URL
+os.environ.setdefault("SECRET_KEY", "test-secret-key-32chars-for-tests!")
+os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_placeholder")
+os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_placeholder")
+os.environ.setdefault("APP_ENV", "test")
+
+from database import Base, get_db, engine   # noqa: E402
 from main import app                         # noqa: E402
 import models                                # noqa: E402
 from auth import hash_password               # noqa: E402
 
-# All test sessions share this one engine — same object as app uses via get_db
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────────────
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def setup_db():
-    """Fresh schema for every test function."""
+    """Create all tables once per session, drop after all tests."""
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
@@ -34,16 +35,20 @@ def setup_db():
 
 @pytest.fixture(scope="function")
 def db():
-    session = TestingSessionLocal()
+    """Each test gets a clean transaction that is rolled back after."""
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = TestingSessionLocal(bind=connection)
     try:
         yield session
     finally:
         session.close()
+        transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture(scope="function")
 def client(db):
-    """TestClient wired to the same in-memory engine."""
     def override_get_db():
         try:
             yield db
@@ -108,7 +113,6 @@ def product(db, category):
 
 
 def auth_headers(client, email, password):
-    """Login and return Bearer token header."""
     resp = client.post("/api/auth/login", json={"email": email, "password": password})
     assert resp.status_code == 200, resp.text
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
