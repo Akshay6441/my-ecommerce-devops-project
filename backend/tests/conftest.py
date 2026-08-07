@@ -1,6 +1,5 @@
 """Shared pytest fixtures — runs against real PostgreSQL (CI service container)."""
 import os
-import sys
 
 # Set environment variables FIRST, before any imports from the app
 DATABASE_URL = os.environ.get(
@@ -15,10 +14,10 @@ os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_placeholder")
 os.environ.setdefault("APP_ENV", "test")
 
 # NOW import app modules (after env vars are set)
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text as _sql
+import pytest                                # noqa: E402
+from fastapi.testclient import TestClient    # noqa: E402
+from sqlalchemy.orm import sessionmaker      # noqa: E402
+from sqlalchemy import text as _sql          # noqa: E402
 
 from database import Base, get_db, engine   # noqa: E402
 from main import app                         # noqa: E402
@@ -47,7 +46,7 @@ END $$;
         with engine.connect() as conn:
             conn.execute(_sql(_CREATE_ENUMS))
             conn.commit()
-    
+
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
