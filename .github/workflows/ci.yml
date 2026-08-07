@@ -35,14 +35,12 @@ jobs:
 
       - name: Run tests
         env:
-          DATABASE_URL: sqlite:////tmp/shopvibe_test.db
+          DATABASE_URL: "sqlite://"
           SECRET_KEY: test-secret-key-32chars-for-tests!
           STRIPE_SECRET_KEY: sk_test_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_placeholder
           APP_ENV: test
-        run: |
-          rm -f /tmp/shopvibe_test.db
-          pytest tests/ -v --tb=short --no-header
+        run: pytest tests/ -v --tb=short --no-header
 
   # ── Frontend: build ──────────────────────────────────────────────────────────
   frontend:
