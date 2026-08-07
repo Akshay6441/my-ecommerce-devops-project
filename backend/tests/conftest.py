@@ -3,6 +3,7 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text as _sql
 
 # DATABASE_URL is injected by CI (postgresql://testuser:testpass@localhost:5432/testdb)
 # Falls back to a local Postgres for local dev runs
@@ -28,6 +29,23 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():
     """Create all tables once per session, drop after all tests."""
+    # Create PostgreSQL ENUM types if using Postgres
+    is_postgres = "postgresql" in DATABASE_URL or "postgres" in DATABASE_URL
+    if is_postgres:
+        _CREATE_ENUMS = """
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'userrole') THEN
+        CREATE TYPE userrole AS ENUM ('customer', 'admin');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'orderstatus') THEN
+        CREATE TYPE orderstatus AS ENUM ('pending', 'processing', 'shipped', 'delivered', 'cancelled');
+    END IF;
+END $$;
+"""
+        with engine.connect() as conn:
+            conn.execute(_sql(_CREATE_ENUMS))
+            conn.commit()
+    
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
