@@ -45,7 +45,9 @@ END $$;
 
 @asynccontextmanager
 async def lifespan(app_instance):  # noqa: F841
-    _init_db()
+    # DB init only runs in production (not when DATABASE_URL is sqlite)
+    if "postgresql" in settings.database_url or "postgres" in settings.database_url:
+        _init_db()
     yield
 
 app = FastAPI(
