@@ -1,12 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy.pool import StaticPool
-import os
+from config import settings
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://user:password@localhost:5432/mydatabase"
-)
+DATABASE_URL = settings.database_url
 
 _is_sqlite = DATABASE_URL.startswith("sqlite")
 _is_memory = DATABASE_URL in ("sqlite://", "sqlite:///:memory:")
