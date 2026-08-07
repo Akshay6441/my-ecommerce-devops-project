@@ -1,12 +1,8 @@
 """Shared pytest fixtures — runs against real PostgreSQL (CI service container)."""
 import os
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import text as _sql
+import sys
 
-# DATABASE_URL is injected by CI (postgresql://testuser:testpass@localhost:5432/testdb)
-# Falls back to a local Postgres for local dev runs
+# Set environment variables FIRST, before any imports from the app
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
     "postgresql://user:password@localhost:5432/mydatabase"
@@ -17,6 +13,12 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key-32chars-for-tests!")
 os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_placeholder")
 os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_placeholder")
 os.environ.setdefault("APP_ENV", "test")
+
+# NOW import app modules (after env vars are set)
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text as _sql
 
 from database import Base, get_db, engine   # noqa: E402
 from main import app                         # noqa: E402
