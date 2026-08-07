@@ -1,49 +1,35 @@
-"""Shared pytest fixtures — in-memory SQLite, no Postgres or file permissions needed."""
+"""Shared pytest fixtures — in-memory SQLite via StaticPool, no Postgres needed."""
 import os
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-# Set env vars FIRST — before any app module is imported
-os.environ["DATABASE_URL"] = "sqlite://"   # pure in-memory, no file
-os.environ["SECRET_KEY"] = "test-secret-key-32chars-for-tests!"
-os.environ["STRIPE_SECRET_KEY"] = "sk_test_placeholder"
+# ── Set env vars BEFORE any app import ───────────────────────────────────────
+os.environ["DATABASE_URL"] = "sqlite://"          # pure in-memory
+os.environ["SECRET_KEY"]   = "test-secret-key-32chars-for-tests!"
+os.environ["STRIPE_SECRET_KEY"]    = "sk_test_placeholder"
 os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_placeholder"
 os.environ["APP_ENV"] = "test"
 
-# Now safe to import app modules
-from database import Base, get_db  # noqa: E402
-from main import app               # noqa: E402
-import models                      # noqa: E402
-from auth import hash_password     # noqa: E402
+# ── Import app modules AFTER env is set ──────────────────────────────────────
+# database.py reads DATABASE_URL from os.environ at import time,
+# so it creates a StaticPool in-memory engine automatically.
+from database import Base, get_db, engine   # noqa: E402  ← THE single engine
+from main import app                         # noqa: E402
+import models                                # noqa: E402
+from auth import hash_password               # noqa: E402
 
-# Create a single shared in-memory engine for the whole test session.
-# StaticPool ensures all connections share the same in-memory database.
-# check_same_thread=False is required for FastAPI's threaded TestClient.
-TEST_ENGINE = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-
-# Enable foreign key support for SQLite
-@event.listens_for(TEST_ENGINE, "connect")
-def _set_sqlite_pragma(dbapi_conn, _):
-    dbapi_conn.execute("PRAGMA foreign_keys=ON")
-
-TestingSessionLocal = sessionmaker(
-    autocommit=False, autoflush=False, bind=TEST_ENGINE
-)
+# All test sessions share this one engine — same object as app uses via get_db
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+# ── Fixtures ──────────────────────────────────────────────────────────────────
 @pytest.fixture(scope="function", autouse=True)
 def setup_db():
-    """Create all tables before each test, drop after."""
-    Base.metadata.create_all(bind=TEST_ENGINE)
+    """Fresh schema for every test function."""
+    Base.metadata.create_all(bind=engine)
     yield
-    Base.metadata.drop_all(bind=TEST_ENGINE)
+    Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture(scope="function")
@@ -57,7 +43,7 @@ def db():
 
 @pytest.fixture(scope="function")
 def client(db):
-    """TestClient wired to the shared in-memory DB."""
+    """TestClient wired to the same in-memory engine."""
     def override_get_db():
         try:
             yield db
@@ -122,7 +108,7 @@ def product(db, category):
 
 
 def auth_headers(client, email, password):
-    """Login and return Authorization header dict."""
+    """Login and return Bearer token header."""
     resp = client.post("/api/auth/login", json={"email": email, "password": password})
     assert resp.status_code == 200, resp.text
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
