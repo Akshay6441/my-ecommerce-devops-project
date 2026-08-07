@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 
 # Set env vars FIRST — before any app module is imported
 # database.py reads DATABASE_URL from os.environ directly
-os.environ["DATABASE_URL"] = "sqlite:///./test.db"
+os.environ["DATABASE_URL"] = "sqlite:////tmp/shopvibe_test.db"
 os.environ["SECRET_KEY"] = "test-secret-key-32chars-for-tests!"
 os.environ["STRIPE_SECRET_KEY"] = "sk_test_placeholder"
 os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_placeholder"
@@ -28,9 +28,9 @@ def setup_db():
     Base.metadata.create_all(bind=test_engine)
     yield
     Base.metadata.drop_all(bind=test_engine)
-    if os.path.exists("test.db"):
+    if os.path.exists("/tmp/shopvibe_test.db"):
         try:
-            os.remove("test.db")
+            os.remove("/tmp/shopvibe_test.db")
         except OSError:
             pass
 
