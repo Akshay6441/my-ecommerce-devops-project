@@ -4,8 +4,8 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 # Install dependencies first (leverages layer cache)
-COPY package.json ./
-RUN npm install --prefer-offline 2>&1 | tail -5
+COPY package.json package-lock.json ./
+RUN npm ci --prefer-offline
 
 # Copy source and build
 COPY . .

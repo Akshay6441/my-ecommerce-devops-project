@@ -45,8 +45,11 @@ END $$;
 
 @asynccontextmanager
 async def lifespan(app_instance):  # noqa: F841
-    # DB init only runs in production (not when DATABASE_URL is sqlite)
-    if "postgresql" in settings.database_url or "postgres" in settings.database_url:
+    # DB init + seeding only in prod/dev — never during tests (test env
+    # creates its own schema via conftest, seeding would pollute it)
+    if settings.app_env != "test" and (
+        "postgresql" in settings.database_url or "postgres" in settings.database_url
+    ):
         _init_db()
     yield
 

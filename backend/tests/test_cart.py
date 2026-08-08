@@ -29,7 +29,7 @@ def test_add_same_product_increases_quantity(client, regular_user, product):
 def test_add_to_cart_exceeds_stock(client, regular_user, product):
     headers = auth_headers(client, "alice@test.com", "alicepass")
     resp = client.post("/api/cart",
-                       json={"product_id": product.id, "quantity": 999}, headers=headers)
+                       json={"product_id": product.id, "quantity": 50}, headers=headers)
     assert resp.status_code == 400
     assert "stock" in resp.json()["detail"].lower()
 
